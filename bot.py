@@ -43,19 +43,19 @@ MESSAGE_DELAY = 5
     GAME_OVER,
 ) = range(8)
 
-# Классы сложности
+# Классы сложности (уменьшены на 1)
 DC = {
-    "hr_interviews": 6,
-    "ai_reject": 6,
-    "jira_comment": 7,
-    "jira_notifications": 7,
-    "code_review": 5,
-    "pink_floyd": 5,
-    "ganvest": 12,
-    "lynch": 14,
-    "neuroslop": 8,
-    "temperature": 7,
-    "deprivation": 9,
+    "hr_interviews": 5,
+    "ai_reject": 5,
+    "jira_comment": 6,
+    "jira_notifications": 6,
+    "code_review": 4,
+    "pink_floyd": 4,
+    "ganvest": 11,
+    "lynch": 13,
+    "neuroslop": 7,
+    "temperature": 6,
+    "deprivation": 8,
 }
 
 # Тексты фич для концовок
@@ -476,6 +476,7 @@ async def handle_stage_selection(update: Update, context: ContextTypes.DEFAULT_T
     if stage == "code_review":
         state.current_subfeature = "code_review"
         state.current_dc = DC["code_review"]
+        # Одно сообщение: название, задача и класс сложности
         await update.message.reply_text(
             f"*{stage_titles[stage]}*\n\n"
             f"{stage_descriptions[stage]}\n\n"
@@ -882,12 +883,11 @@ async def game_over_fail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
     await asyncio.sleep(MESSAGE_DELAY)
 
-    keyboard = [[InlineKeyboardButton("НОВАЯ ИГРА", callback_data="new_game")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Вместо кнопки "НОВАЯ ИГРА" отправляем текст
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Начать заново?",
-        reply_markup=reply_markup
+        text="_Чтобы начать игру заново, используй команду /start._",
+        parse_mode="Markdown"
     )
 
     return GAME_OVER
@@ -1038,7 +1038,7 @@ async def handle_win_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await asyncio.sleep(MESSAGE_DELAY)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="_Вскоре ты уже совершенно уверен, что это всё было просто игрой, однако ощущение приобретённой удачливости остаётся где-то внутри._",
+            text="_Вскоре ты уже совершенно уверен, что это всё было просто игрой, однако ощущение приобретённой удачливости остаётся где-то внутри. Может зайти к Малому?_",
             parse_mode="Markdown"
         )
         await asyncio.sleep(MESSAGE_DELAY)
@@ -1048,14 +1048,8 @@ async def handle_win_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             parse_mode="Markdown"
         )
         await asyncio.sleep(MESSAGE_DELAY)
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="_Может зайти к Малому?_",
-            parse_mode="Markdown"
-        )
-        await asyncio.sleep(MESSAGE_DELAY)
 
-        true_end_path = os.path.join(AUDIO_PATH, "TRUE END.m4a")
+        true_end_path = os.path.join(AUDIO_PATH, "TRUE END.mp3")
         if os.path.exists(true_end_path):
             with open(true_end_path, 'rb') as audio:
                 await context.bot.send_audio(
@@ -1072,12 +1066,11 @@ async def handle_win_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             )
         await asyncio.sleep(MESSAGE_DELAY)
 
-    keyboard = [[InlineKeyboardButton("НОВАЯ ИГРА", callback_data="new_game")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Вместо кнопки "НОВАЯ ИГРА" отправляем текст
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Начать заново?",
-        reply_markup=reply_markup
+        text="_Чтобы начать игру заново, используй команду /start._",
+        parse_mode="Markdown"
     )
 
     return GAME_OVER
@@ -1091,36 +1084,6 @@ async def final_score(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     if state.fail_count >= 2:
         return await game_over_fail(update, context)
     return await game_over_fail(update, context)
-
-
-async def new_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Обработчик кнопки «НОВАЯ ИГРА» — полный перезапуск"""
-    query = update.callback_query
-    await query.answer()
-    user_id = update.effective_user.id
-    logger.info(f"User {user_id} started New Game via button")
-
-    state = get_user_state(user_id)
-    state.reset()
-
-    await query.edit_message_text(
-        "Начинаем новую игру...",
-        reply_markup=ReplyKeyboardRemove()
-    )
-    await asyncio.sleep(MESSAGE_DELAY)
-
-    from telegram import Message, Chat, User
-    chat = Chat(id=update.effective_chat.id, type="private")
-    user = User(id=user_id, first_name="Player", is_bot=False)
-    fake_msg = Message(
-        message_id=update.callback_query.message.message_id + 1000,
-        date=update.callback_query.message.date,
-        chat=chat,
-        from_user=user,
-        text="/start"
-    )
-    fake_update = Update(update.update_id + 1000, message=fake_msg)
-    return await start(fake_update, context)
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1183,7 +1146,6 @@ def main() -> None:
                 CallbackQueryHandler(after_kpi, pattern="^after_kpi$"),
             ],
             GAME_OVER: [
-                CallbackQueryHandler(new_game, pattern="^new_game$"),
                 CallbackQueryHandler(handle_win_choice, pattern="^(win_stay|win_leave)$"),
                 CommandHandler("start", start),
             ],
